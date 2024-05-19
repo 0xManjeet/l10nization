@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
-import { Configuration } from '../shared/configuration';
 import { EditFilesParameters } from '../commands/editFilesParameters';
-import { L10nObject } from './l10nObject';
+import { Configuration } from '../shared/configuration';
 import { getArbFiles } from './getArbFiles';
 import { getFunctionCall } from './getFunctionCall';
 import { getProjectName } from './getProjectName';
+import { L10nObject } from './l10nObject';
 import { toJson } from './toJson';
 
 export async function getChangesForArbFiles(parameters: EditFilesParameters): Promise<vscode.WorkspaceEdit> {
@@ -18,15 +18,32 @@ export async function getChangesForArbFiles(parameters: EditFilesParameters): Pr
     vscode.window.showErrorMessage(`No template arb file found.`);
     throw new Error(`No template arb file found.`);
   }
+  
   const openTextDocuments: Thenable<vscode.TextDocument>[] = [];
   files.forEach((file) => {
     openTextDocuments.push(vscode.workspace.openTextDocument(file));
   });
-  const workspaceEdit = new vscode.WorkspaceEdit();
+  
   const { key, value } = parameters.keyValue;
   const { description, placeholders } = parameters;
+  
+  // Check if the key already exists in any of the ARB files
+  const openDocs = await Promise.all(openTextDocuments);
+  var hasDuplicateKey=false
+  for (const doc of openDocs) {
+    const jsonContent = JSON.parse(doc.getText());
+    if (key in jsonContent) {
+      hasDuplicateKey=true;
+    }
+  }
+  if(hasDuplicateKey){
+    //  vscode.window.showErrorMessage(`The key "${key}" already exists.`);
+     throw new Error(`The key "${key}" already exists.`);
+  }
+  
+  const workspaceEdit = new vscode.WorkspaceEdit();
   const sortArbEnabled = Configuration.getInstance().getSortArbEnabled();
-  (await Promise.all(openTextDocuments)).forEach((content, index) => {
+  openDocs.forEach((content, index) => {
     const file = files[index];
     const isMetadataEnabled = Configuration.getInstance().getCopyMetadataInAllFiles();
     workspaceEdit.replace(
@@ -46,5 +63,6 @@ export async function getChangesForArbFiles(parameters: EditFilesParameters): Pr
       placeholders.map((p) => p.value),
     ),
   );
+  
   return workspaceEdit;
 }
