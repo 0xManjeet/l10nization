@@ -30,15 +30,18 @@ export async function getChangesForArbFiles(parameters: EditFilesParameters): Pr
   // Check if the key already exists in any of the ARB files
   const openDocs = await Promise.all(openTextDocuments);
   var hasDuplicateKey=false
+  
   for (const doc of openDocs) {
     const jsonContent = JSON.parse(doc.getText());
-    if (key in jsonContent) {
-      hasDuplicateKey=true;
+    if (key in jsonContent && jsonContent[key] !== value) {
+      hasDuplicateKey = true;
+      break
     }
   }
-  if(hasDuplicateKey){
-    //  vscode.window.showErrorMessage(`The key "${key}" already exists.`);
-     throw new Error(`The key "${key}" already exists.`);
+
+  if (hasDuplicateKey ) {
+    vscode.window.showErrorMessage(`The key "${key}" already exists with a different value.`);
+    throw new Error(`The key "${key}" already exists with a different value.`);
   }
   
   const workspaceEdit = new vscode.WorkspaceEdit();
